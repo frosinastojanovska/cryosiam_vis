@@ -1,0 +1,8 @@
+dash
+pandas
+PyYAML
+dash_bootstrap_components
+mrcfile
+h5py
+scipy
+dash-slicer

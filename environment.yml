@@ -1,0 +1,14 @@
+name: cryosiam_vis
+channels:
+  - conda-forge
+dependencies:
+  - dash
+  - pandas
+  - mrcfile
+  - h5py
+  - scipy
+  - pip:
+      - dash-slicer
+      - PyYAML
+      - dash_bootstrap_components
+
