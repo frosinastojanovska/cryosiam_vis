@@ -19,6 +19,7 @@ umap = pd.DataFrame(columns=['class', 'x', 'y', 'labels', 'current_class'])
 subcluster_umap = pd.DataFrame(columns=['class', 'x', 'y', 'labels', 'current_class'])
 tomo = None
 instances = None
+selected_particle = None
 
 app = Dash(__name__, external_stylesheets=[dbc.themes.SANDSTONE, dbc.icons.FONT_AWESOME])
 server = app.server
@@ -71,7 +72,7 @@ app.layout = dbc.Container(
                     [
                         dbc.CardHeader("Structure view"),
                         dbc.CardBody([
-                            html.Div(["Select a point the the UMAP plot"], id='selected-structure-id'),
+                            html.Div(["Select a point the the UMAP plot"], id='selected-structure-info'),
                             dbc.Col(
                                 dbc.Spinner(dcc.Graph(id='selected-structure'), color="primary", type="grow"),
                                 width='auto')
@@ -104,7 +105,7 @@ app.layout = dbc.Container(
 )
 
 
-def generate_kmeans_scatter_plot():
+def generate_scatter_plot():
     global umap
     global selected_file
     umap['current_class'] = [row['class'] if selected_file in row['labels'] else '0' for i, row in
@@ -145,6 +146,7 @@ def load_data_files():
 def generate_particle_plot(instance_id):
     global tomo
     global instances
+    global selected_particle
     mask = instances == instance_id
     slices = ndi.find_objects(mask)[0]
     sub_mask = mask[slices]
@@ -154,6 +156,7 @@ def generate_particle_plot(instance_id):
     pad_size = tuple([(max(math.ceil((p - b) / 2), 0), max(math.floor((p - b) / 2), 0)) for p, b in
                       zip(patch_size, patch.shape)])
     patch = np.pad(patch, pad_size, 'constant')[:patch_size[0], :patch_size[1], :patch_size[2]]
+    selected_particle = patch
     z, y, x = np.mgrid[:patch.shape[0], :patch.shape[1], :patch.shape[2]]
     fig = go.Figure(data=go.Volume(
         x=x.flatten(), y=y.flatten(), z=z.flatten(),
@@ -181,9 +184,7 @@ def parse_contents(contents, filename):
         selected_file = files[0]
     except Exception as e:
         print(e)
-        return html.Div([
-            'There was an error processing this file.'
-        ])
+        return html.Div(['There was an error processing this file.'])
 
     return filename, files, selected_file
 
@@ -208,14 +209,17 @@ def update_upload_output(content, name):
 def update_output(value):
     global selected_file
     selected_file = value
-    fig = generate_kmeans_scatter_plot()
+    fig = generate_scatter_plot()
     load_data_files()
     return fig
 
 
 @app.callback([Output('selected-structure', 'figure'),
-               Output('subcluster-selected-structure', 'figure',  allow_duplicate=True),
-               Output('subcluster-umap-plot', 'figure')],
+               Output('subcluster-selected-structure', 'figure', allow_duplicate=True),
+               Output('subcluster-umap-plot', 'figure'),
+               Output('selected-structure-info', 'children'),
+               Output('subcluster-umap-plot-info', 'children'),
+               Output('subcluster-selected-structure-info', 'children', allow_duplicate=True)],
               Input('umap-plot', 'clickData'),
               prevent_initial_call=True)
 def display_click_image(click_data):
@@ -231,16 +235,30 @@ def display_click_image(click_data):
         subcluster_umap = umap[umap['current_class'] == str(cluster_id)]
     fig = generate_subcluster_scatter_plot()
     vol = generate_particle_plot(instance_id)
-    return vol, vol, fig
+    message = f'Cluster: {cluster_id}'
+    message2 = f'Instance: {instance_id}'
+    return vol, vol, fig, ', '.join([message, message2]), message, message2
 
 
-@app.callback(Output('subcluster-selected-structure', 'figure'),
+@app.callback([Output('subcluster-selected-structure', 'figure'),
+               Output('subcluster-selected-structure-info', 'children', allow_duplicate=True)],
               Input('subcluster-umap-plot', 'clickData'),
               prevent_initial_call=True)
 def display_click_image_second_plot(click_data):
     instance_id = int(click_data["points"][0]['customdata'][1].split('_')[-1])
     vol = generate_particle_plot(instance_id)
-    return vol
+    message = f'Instance: {instance_id}'
+    return vol, message
+
+
+@app.callback(Output("download_xslx", "data"), [Input("btn_xslx", "n_clicks")], prevent_initial_call=True)
+def save_example(n_nlicks):
+    def to_xlsx(bytes_io):
+        xslx_writer = pd.ExcelWriter(bytes_io, engine="xlsxwriter")  # requires the xlsxwriter package
+        df.to_excel(xslx_writer, index=False, sheet_name="sheet1")
+        xslx_writer.close()
+
+    return dcc.send_bytes(to_xlsx, "some_name.xlsx")
 
 
 if __name__ == '__main__':

@@ -7,8 +7,11 @@ dependencies:
   - mrcfile
   - h5py
   - scipy
+  - napari
+  - pygt
   - pip:
       - dash-slicer
       - PyYAML
       - dash_bootstrap_components
+      - napari
 

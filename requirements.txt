@@ -6,3 +6,5 @@ mrcfile
 h5py
 scipy
 dash-slicer
+napari
+pyqt
