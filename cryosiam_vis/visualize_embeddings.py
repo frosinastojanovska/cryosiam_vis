@@ -184,7 +184,7 @@ def generate_particle_plot(instance_id):
         value=patch.flatten(),
         isomin=0.01,
         isomax=0.99,
-        opacity=0.2,
+        opacity=0.3,
         colorscale='gray'
     ))
     return fig

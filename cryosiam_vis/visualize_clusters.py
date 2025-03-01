@@ -71,12 +71,10 @@ app.layout = dbc.Container(
                 dbc.Col(dbc.Card(
                     [
                         dbc.CardHeader("Structure view"),
-                        dbc.CardBody([
+                        dbc.Spinner(dbc.CardBody([
                             html.Div(["Select a point the the UMAP plot"], id='selected-structure-info'),
-                            dbc.Col(
-                                dbc.Spinner(dcc.Graph(id='selected-structure'), color="primary", type="grow"),
-                                width='auto')
-                        ])
+                            dbc.Col(dcc.Graph(id='selected-structure'), width='auto')
+                        ]), color="primary", type="grow"),
                     ]), width=6)
             ]),
         html.Hr(),
@@ -84,20 +82,21 @@ app.layout = dbc.Container(
             [
                 dbc.Col(dbc.Card([
                     dbc.CardHeader("Subcluster UMAP"),
-                    dbc.CardBody([
+                    dbc.Spinner(dbc.CardBody([
                         html.Div(["Select a point the the UMAP plot"], id='subcluster-umap-plot-info'),
-                        dbc.Col(dbc.Spinner(dcc.Graph(id='subcluster-umap-plot'), color="primary", type="grow"),
-                                width='auto')
-                    ])
+                        dbc.Col(dcc.Graph(id='subcluster-umap-plot'), width='auto')
+                    ]),
+                        color="primary", type="grow")
                 ]), width=6),
                 dbc.Col(dbc.Card([
                     dbc.CardHeader("Subcluster structure view"),
-                    dbc.CardBody([
-                        html.Div(["Select a point the the UMAP plot"], id='subcluster-selected-structure-info'),
-                        dbc.Col(
-                            dbc.Spinner(dcc.Graph(id='subcluster-selected-structure'), color="primary", type="grow"),
-                            width='auto')
-                    ])
+                    dbc.Spinner(
+                        dbc.CardBody([
+                            html.Div(["Select a point the the UMAP plot"], id='subcluster-selected-structure-info'),
+                            dbc.Col(
+                                dcc.Graph(id='subcluster-selected-structure'),
+                                width='auto')
+                        ]), color="primary", type="grow")
                 ]), width=6)
             ])
     ],
@@ -163,7 +162,7 @@ def generate_particle_plot(instance_id):
         value=patch.flatten(),
         isomin=0.01,
         isomax=0.99,
-        opacity=0.2,
+        opacity=0.3,
         colorscale='gray'
     ))
     return fig
@@ -228,7 +227,7 @@ def display_click_image(click_data):
     instance_id = int(click_data["points"][0]['customdata'][1].split('_')[-1])
     cluster_id = int(click_data["points"][0]['customdata'][0])
     subcluster_file_path = os.path.join(config['prediction_folder'],
-                                        f'subcluster_clusters_selected_{cluster_id}_umap_data.csv')
+                                        f'spectral_clusters_selected_{cluster_id}_umap_data.csv')
     if os.path.exists(subcluster_file_path):
         subcluster_umap = pd.read_csv(subcluster_file_path)
     else:
@@ -237,7 +236,9 @@ def display_click_image(click_data):
     vol = generate_particle_plot(instance_id)
     message = f'Cluster: {cluster_id}'
     message2 = f'Instance: {instance_id}'
-    return vol, vol, fig, ', '.join([message, message2]), message, message2
+    class_id = subcluster_umap.loc[subcluster_umap['labels'].str.endswith(f'_{instance_id}'), 'class'].values[0]
+    message3 = f'Class: {class_id}'
+    return vol, vol, fig, ', '.join([message, message2]), message, ', '.join([message3, message2])
 
 
 @app.callback([Output('subcluster-selected-structure', 'figure'),
@@ -247,18 +248,9 @@ def display_click_image(click_data):
 def display_click_image_second_plot(click_data):
     instance_id = int(click_data["points"][0]['customdata'][1].split('_')[-1])
     vol = generate_particle_plot(instance_id)
-    message = f'Instance: {instance_id}'
+    class_id = subcluster_umap.loc[subcluster_umap['labels'].str.endswith(f'_{instance_id}'), 'class'].values[0]
+    message = f'Class: {class_id}, Instance: {instance_id}'
     return vol, message
-
-
-@app.callback(Output("download_xslx", "data"), [Input("btn_xslx", "n_clicks")], prevent_initial_call=True)
-def save_example(n_nlicks):
-    def to_xlsx(bytes_io):
-        xslx_writer = pd.ExcelWriter(bytes_io, engine="xlsxwriter")  # requires the xlsxwriter package
-        df.to_excel(xslx_writer, index=False, sheet_name="sheet1")
-        xslx_writer.close()
-
-    return dcc.send_bytes(to_xlsx, "some_name.xlsx")
 
 
 if __name__ == '__main__':
