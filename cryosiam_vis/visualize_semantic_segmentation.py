@@ -1,0 +1,42 @@
+import os
+import h5py
+import yaml
+import napari
+import mrcfile
+import argparse
+import numpy as np
+
+
+def parser_helper(description=None):
+    description = "Show semantic segmentation with napari" if description is None else description
+    parser = argparse.ArgumentParser(description, add_help=True,
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--config', type=str, required=True,
+                        help='path to the config file used for running CryoSiam semantic segmentation')
+    parser.add_argument('--filename', type=str, required=True,
+                        help='Tomogram filename (including the file extension')
+    return parser
+
+
+def main(config, filename):
+    with open(config, "r") as ymlfile:
+        config = yaml.safe_load(ymlfile)
+    tomo = mrcfile.open(os.path.join(config['data_folder'], filename)).data
+    prediction_file = os.path.join(config['prediction_folder'],
+                                   filename.split(config['file_extension'])[0] + '_preds.h5')
+    with h5py.File(prediction_file, 'r') as f:
+        labels = f['labels'][()]
+    v = napari.Viewer()
+    v.add_image(tomo * -1, name='tomo')
+    v.add_labels(labels, name='predictions')
+    for label in np.unique(labels):
+        if label == 0:
+            continue
+        v.add_labels((labels == label) * label, name=label)
+    napari.run()
+
+
+if __name__ == '__main__':
+    parser = parser_helper()
+    args = parser.parse_args()
+    main(args.config, args.filename)

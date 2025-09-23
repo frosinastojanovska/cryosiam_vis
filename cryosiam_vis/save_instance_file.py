@@ -6,7 +6,6 @@ import mrcfile
 import argparse
 import numpy as np
 from scipy import ndimage as ndi
-from skimage.segmentation import expand_labels
 
 
 def save_tomogram(file_path, data):
@@ -66,8 +65,6 @@ def main(args):
     instances_file = os.path.join(config['instances_mask_folder'], tomo_root_name + '_instance_preds.h5')
     with h5py.File(instances_file, 'r') as f:
         instances = f['instances'][()]
-
-    # instances = expand_labels(instances, 1)
 
     subtomo = generate_particle_subtomogram(tomo, instances, inst_id, args.mask)
     save_tomogram(os.path.join(out_dir, f'{tomo_root_name}_instance_{inst_id}.mrc'), subtomo)
