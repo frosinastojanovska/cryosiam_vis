@@ -24,23 +24,29 @@ def parser_helper(description=None):
 def main(tomo_path, filename, star_file, point_size):
     tomo = mrcfile.open(os.path.join(tomo_path, filename)).data
     points = starfile.read(star_file)
+
     if type(points) is dict:
         points = points['particles']
-    points = points[points['rlnMicrographName'] == filename.split('.')[0]]
+        prefix = ''
+    else:
+        prefix = '_'
+    points = points[points[f'{prefix}rlnMicrographName'] == filename.split('.')[0]]
 
     v = napari.Viewer()
-    v.add_image(tomo, name='tomo')
+    v.add_image(tomo * -1, name='tomo')
 
-    if 'rlnClassNumber' in points:
-        classes = np.unique(points['rlnClassNumber']).tolist()
+    if f'{prefix}rlnClassNumber' in points:
+        classes = np.unique(points[f'{prefix}rlnClassNumber']).tolist()
         for c in classes:
-            current_points = points[points['rlnClassNumber'] == c]
+            current_points = points[points[f'{prefix}rlnClassNumber'] == c]
             print(current_points.shape)
-            v.add_points(current_points[['rlnCoordinateZ', 'rlnCoordinateY', 'rlnCoordinateX']],
-                         name=f'class_{c}_points',
-                         n_dimensional=True, size=point_size)
+            v.add_points(
+                current_points[[f'{prefix}rlnCoordinateZ', f'{prefix}rlnCoordinateY', f'{prefix}rlnCoordinateX']],
+                name=f'class_{c}_points',
+                n_dimensional=True, size=point_size)
     else:
-        v.add_points(points[['rlnCoordinateZ', 'rlnCoordinateY', 'rlnCoordinateX']], name='points',
+        v.add_points(points[[f'{prefix}rlnCoordinateZ', f'{prefix}rlnCoordinateY', f'{prefix}rlnCoordinateX']],
+                     name='points',
                      n_dimensional=True, size=point_size)
     napari.run()
 
