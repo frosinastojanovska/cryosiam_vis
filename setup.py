@@ -23,7 +23,7 @@ setup(
         "h5py==3.11.0",
         "dash-slicer==0.3.1",
         "napari[pyqt5]==0.6.4",
-        "starfile==0.5.12"
+        "starfile==0.5.2"
     ],
     python_requires=">=3.8",
     classifiers=[

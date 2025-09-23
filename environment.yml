@@ -9,7 +9,7 @@ dependencies:
   - h5py==3.11.0
   - napari==0.6.4
   - pyqt==5.15.11
-  - starfile==0.5.12
+  - starfile==0.5.2
   - pip:
       - dash-slicer==0.3.1
       - dash_bootstrap_components==1.7.1
