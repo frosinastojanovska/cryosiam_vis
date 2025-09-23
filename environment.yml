@@ -7,8 +7,8 @@ dependencies:
   - pyyaml=6.0.2
   - mrcfile==1.5.3
   - h5py==3.11.0
-  - scipy==1.9.1
-  - napari==0.4.17
+  - napari==0.6.4
+  - pyqt==5.15.11
   - starfile==0.5.12
   - pip:
       - dash-slicer==0.3.1

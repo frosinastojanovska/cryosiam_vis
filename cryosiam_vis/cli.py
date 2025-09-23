@@ -42,7 +42,7 @@ def main():
     sp_instance.set_defaults(func=lambda args: visualize_instance_segmentation(args.config_file, args.filename))
 
     # visualize_coordinates
-    sp_coordinates = subparsers.add_parser("visualize_instance",
+    sp_coordinates = subparsers.add_parser("visualize_coordinates",
                                            help="Run visualization of the instance segmentation prediction")
     sp_coordinates.add_argument('--tomo_path', type=str, required=True,
                                 help='Path to the folder containing (denoised) tomograms')
