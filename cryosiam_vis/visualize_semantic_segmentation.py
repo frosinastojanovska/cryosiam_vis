@@ -26,9 +26,15 @@ def main(config, filename):
                                    filename.split(config['file_extension'])[0] + '_preds.h5')
     with h5py.File(prediction_file, 'r') as f:
         labels = f['labels'][()]
+        if 'probs' in f:
+            probs = f['probs'][()]
+        else:
+            probs = None
     v = napari.Viewer()
     v.add_image(tomo * -1, name='tomo')
     v.add_labels(labels, name='predictions')
+    if probs is not None:
+        v.add_image(probs, name='probs')
     for label in np.unique(labels):
         if label == 0:
             continue
