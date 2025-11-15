@@ -21,8 +21,8 @@ def save_tomogram(file_path, data):
         return m.data
 
 
-def generate_particle_subtomogram(tomo, instances, instance_id, masked):
-    mask = instances == instance_id
+def generate_particle_subtomogram(tomo, instances, instance_ids, masked):
+    mask = np.isin(instances, instance_ids)
     slices = ndi.find_objects(mask)[0]
     sub_mask = mask[slices]
     patch = tomo[slices].copy()

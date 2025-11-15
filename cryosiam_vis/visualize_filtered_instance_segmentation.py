@@ -8,11 +8,11 @@ import numpy as np
 
 
 def parser_helper(description=None):
-    description = "Show semantic segmentation with napari" if description is None else description
+    description = "Plot instance segmentation with napari" if description is None else description
     parser = argparse.ArgumentParser(description, add_help=True,
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--config', type=str, required=True,
-                        help='path to the config file used for running CryoSiam semantic segmentation')
+                        help='path to the config file used for running CryoSiam')
     parser.add_argument('--filename', type=str, required=True,
                         help='Tomogram filename (including the file extension')
     return parser
@@ -22,24 +22,21 @@ def main(config, filename):
     with open(config, "r") as ymlfile:
         config = yaml.safe_load(ymlfile)
     tomo = mrcfile.open(os.path.join(config['data_folder'], filename)).data
-    prediction_file = os.path.join(config['prediction_folder'],
+    instances_file = os.path.join(config['prediction_folder'] + '_filtered',
+                                  filename.split(config['file_extension'])[0] + '_instance_preds.h5')
+    with h5py.File(instances_file, 'r') as f:
+        instances = f['instances'][()]
+    v = napari.Viewer()
+    v.add_image(tomo * -1, name='tomo')
+    v.add_labels(instances, name='instances')
+
+    prediction_file = os.path.join(config['filtering_mask_folder'],
                                    filename.split(config['file_extension'])[0] + '_preds.h5')
     with h5py.File(prediction_file, 'r') as f:
         labels = f['labels'][()]
-        if 'probs' in f:
-            probs = f['probs'][()]
-        else:
-            probs = None
-    v = napari.Viewer()
-    v.add_image(tomo * -1, name='tomo')
-    if probs is not None:
-        v.add_image(probs, name='probs', colormap='magma')
-    v.add_labels(labels, name='predictions')
-    if np.max(labels) > 1:
-        for label in np.unique(labels):
-            if label == 0:
-                continue
-            v.add_labels((labels == label) * label, name=f'label_{label}')
+
+    v.add_labels(np.isin(labels, config['filtering_mask_labels']), name='mask')
+    v.add_labels((instances > 0) * 2, name='filtered_particles')
     napari.run()
 
 

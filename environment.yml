@@ -2,15 +2,16 @@ name: cryosiam_vis
 channels:
   - conda-forge
 dependencies:
+  - plotly<=5.24.1
   - dash==2.14.2
-  - pandas==2.2.3
-  - pyyaml=6.0.2
-  - mrcfile==1.5.3
-  - h5py==3.11.0
-  - napari==0.6.4
-  - pyqt==5.15.11
-  - starfile==0.5.2
+  - pandas
+  - pyyaml
+  - mrcfile
+  - h5py
+  - napari
+  - pyqt
+  - starfile
+  - pip
   - pip:
       - dash-slicer==0.3.1
       - dash_bootstrap_components==1.7.1
-

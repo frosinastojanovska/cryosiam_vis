@@ -5,6 +5,7 @@ import yaml
 import h5py
 import base64
 import mrcfile
+import argparse
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -14,8 +15,20 @@ import dash_bootstrap_components as dbc
 from dash import Dash, dcc, html, Input, Output, State, callback, clientside_callback
 
 
-def main():
-    config = None
+def parser_helper(description=None):
+    description = "Plot embeddings in Dash" if description is None else description
+    parser = argparse.ArgumentParser(description, add_help=True,
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--config', type=str, required=True,
+                        help='path to the config file used for running SimSiam')
+    return parser
+
+
+def main(config):
+    with open(config, "r") as ymlfile:
+        config = yaml.safe_load(ymlfile)
+    files = [x.split('_embeds_umap_data.csv')[0] + config['file_extension'] for x in
+             os.listdir(config['visualization']['prediction_folder']) if x.endswith('_embeds_umap_data.csv')]
     selected_file = ''
     umap = pd.DataFrame(columns=['class', 'x', 'y', 'label'])
     tomo = None
@@ -26,7 +39,6 @@ def main():
     current_submask = None
     sliding_axis = 'z'
     view_type = 'image'
-
     app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.FONT_AWESOME])
     server = app.server
 
@@ -35,31 +47,9 @@ def main():
             html.Div(["SimSiam embeddings visualization"], className="bg-primary text-white h3 p-2"),
             html.Hr(),
             dbc.Row(dbc.Col(dbc.Card(dbc.CardBody([
-                html.Div(["Upload the config file for running SimSiam:"]),
-                dcc.Upload(
-                    id='upload-data',
-                    children=html.Div([
-                        'Drag and Drop or ',
-                        html.A('Select Files')
-                    ]),
-                    style={
-                        'width': '100%',
-                        'height': '60px',
-                        'lineHeight': '60px',
-                        'borderWidth': '1px',
-                        'borderStyle': 'dashed',
-                        'borderRadius': '5px',
-                        'textAlign': 'center',
-                        'margin': '10px'
-                    },
-                    # Allow multiple files to be uploaded
-                    multiple=False),
-                html.H6('No config file selected', id='selected_file')])), width=6)),
-            html.Hr(),
-            dbc.Row(dbc.Col(dbc.Card(dbc.CardBody([
                 html.Div([
                     html.H6('Select a file for visualization:'),
-                    dbc.Spinner(dcc.Dropdown([''], '', id='file-dropdown'), color="primary", type="grow")])
+                    dcc.Loading(dcc.Dropdown(files, '', id='file-dropdown'), type="circle")])
             ])), width=6)),
             html.Hr(),
             dbc.Row(
@@ -71,7 +61,8 @@ def main():
                                 [
                                     html.Div(dcc.Input(id="selected-instance-id", type="number", debounce=True,
                                                        placeholder="Select a specific instance"), id='umap-plot-info'),
-                                    dbc.Col(dbc.Spinner(dcc.Graph(id='umap-plot'), color="primary", type="grow"),
+                                    dbc.Col(dcc.Loading(dcc.Graph(id='umap-plot'),
+                                                        type="circle"),
                                             width='auto')
                                 ])
                         ]), width=6),
@@ -81,7 +72,7 @@ def main():
                             dbc.CardBody([
                                 html.Div(["Select a point the the UMAP plot"], id='selected-structure-info'),
                                 dbc.Col(
-                                    dbc.Spinner(dcc.Graph(id='selected-structure'), color="primary", type="grow"),
+                                    dcc.Loading(dcc.Graph(id='selected-structure'), type="circle"),
                                     width='auto')
                             ])
                         ]), width=6)
@@ -93,7 +84,7 @@ def main():
                         dbc.CardHeader("Selected instance embedding UMAP"),
                         dbc.CardBody([
                             html.Div(["Select a point the the UMAP plot"], id='selected-umap-plot-info'),
-                            dbc.Col(dbc.Spinner(dcc.Graph(id='selected-umap-plot'), color="primary", type="grow"),
+                            dbc.Col(dcc.Loading(dcc.Graph(id='selected-umap-plot'), type="circle"),
                                     width='auto')
                         ])
                     ]), width=6),
@@ -104,8 +95,8 @@ def main():
                             dcc.Dropdown(['z', 'y', 'x'], sliding_axis, id='sliding-axis'),
                             html.Div(["View type:"]),
                             dcc.Dropdown(['image', 'mask'], view_type, id='view-type'),
-                            dbc.Col([dbc.Spinner(dcc.Graph(id='tomo-slice', style={'width': '500', 'height': '500'}),
-                                                 color="primary", type="grow")], width='auto')
+                            dbc.Col([dcc.Loading(dcc.Graph(id='tomo-slice', style={'width': '500', 'height': '500'}),
+                                                 type="circle")], width='auto')
                         ])
                     ]), width=6)
 
@@ -115,32 +106,34 @@ def main():
     )
 
     def generate_scatter_plot():
-        global config
-        global umap
-        global selected_file
+        nonlocal config
+        nonlocal umap
+        nonlocal selected_file
         fig = px.scatter(umap, x='x', y='y',
                          color='semantic_class2' if 'semantic_class2' in umap.columns else 'semantic_class' if 'semantic_class' in umap.columns else 'log_area',
-                         hover_data=umap.columns, opacity=0.5,
+                         hover_data=umap.columns,
+                         opacity=0.5,
                          color_discrete_sequence=px.colors.qualitative.Light24, width=600, height=600)
         return fig
 
     def generate_selected_scatter_plot(selected_instance_id):
-        global config
-        global umap
-        global selected_file
+        nonlocal config
+        nonlocal umap
+        nonlocal selected_file
         fig = px.scatter(umap, x='x', y='y',
                          hover_data=umap.columns, opacity=0.5, width=600, height=600)
         selected_point = umap.loc[umap['label'] == selected_instance_id]
         fig.add_trace(go.Scatter(x=selected_point['x'], y=selected_point['y'],
-                                 mode='markers', marker_line_width=2, marker_size=20, marker_symbol='circle-open-dot'))
+                                 mode='markers', marker_line_width=2, marker_size=20,
+                                 marker_symbol='circle-open-dot'))
         return fig
 
     def load_data_files():
-        global tomo
-        global instances
-        global selected_file
-        global config
-        global umap
+        nonlocal tomo
+        nonlocal instances
+        nonlocal selected_file
+        nonlocal config
+        nonlocal umap
         file_path = os.path.join(config['visualization']['prediction_folder'],
                                  f'{selected_file.split(config["file_extension"])[0]}_embeds_umap_data.csv')
         umap = pd.read_csv(file_path)
@@ -155,12 +148,12 @@ def main():
             instances = f['instances'][()]
 
     def generate_particle_plot(instance_id):
-        global tomo
-        global current_subtomo
-        global current_submask
-        global instances
+        nonlocal tomo
+        nonlocal current_subtomo
+        nonlocal current_submask
+        nonlocal instances
         if instance_id != 0:
-            mask = instances == instance_id
+            mask = (instances == instance_id).astype(np.uint8)
             slices = ndi.find_objects(mask)[0]
             sub_mask = mask[slices]
             patch = tomo[slices].copy()
@@ -183,16 +176,16 @@ def main():
             value=patch.flatten(),
             isomin=0.01,
             isomax=0.99,
-            opacity=0.3,
+            opacity=0.1,
             colorscale='gray'
         ))
         return fig
 
     def plot_image():
-        global current_subtomo
-        global current_submask
-        global sliding_axis
-        global view_type
+        nonlocal current_subtomo
+        nonlocal current_submask
+        nonlocal sliding_axis
+        nonlocal view_type
 
         if view_type == 'image':
             fig = px.imshow(current_subtomo,
@@ -204,43 +197,11 @@ def main():
                             color_continuous_scale='gray')
         return fig
 
-    def parse_contents(contents, filename):
-        content_type, content_string = contents.split(',')
-
-        decoded = base64.b64decode(content_string)
-        try:
-            global config
-            global selected_file
-            config = yaml.safe_load(io.StringIO(decoded.decode('utf-8')))
-            files = [x.split('_embeds_umap_data.csv')[0] + config['file_extension'] for x in
-                     os.listdir(config['visualization']['prediction_folder']) if x.endswith('_embeds_umap_data.csv')]
-            selected_file = files[0]
-        except Exception as e:
-            print(e)
-            return html.Div([
-                'There was an error processing this file.'
-            ])
-
-        return filename, files, selected_file
-
-    @callback([
-        Output('selected_file', 'children'),
-        Output('file-dropdown', 'options'),
-        Output('file-dropdown', 'value')
-    ],
-        Input('upload-data', 'contents'),
-        State('upload-data', 'filename'),
-        prevent_initial_call=True)
-    def update_upload_output(content, name):
-        if content is not None:
-            res = parse_contents(content, name)
-            return res
-
     @callback(Output('umap-plot', 'figure', allow_duplicate=True),
               Input('file-dropdown', 'value'),
               prevent_initial_call=True)
     def update_output(value):
-        global selected_file
+        nonlocal selected_file
         selected_file = value
         load_data_files()
         fig = generate_scatter_plot()
@@ -255,9 +216,8 @@ def main():
                   prevent_initial_call=True)
     def display_click_image(click_data):
         instance_id = int(click_data["points"][0]['customdata'][1])
-        class_id = int(click_data["points"][0]['customdata'][-2])
         vol = generate_particle_plot(instance_id)
-        message = f"Class id: {class_id}, Instance id: {instance_id}"
+        message = f"Instance id: {instance_id}"
         fig = plot_image()
         selected_fig = generate_selected_scatter_plot(instance_id)
         return vol, message, fig, selected_fig, message
@@ -269,9 +229,8 @@ def main():
                   prevent_initial_call=True)
     def display_click_second_image(click_data):
         instance_id = int(click_data["points"][0]['customdata'][1])
-        class_id = int(click_data["points"][0]['customdata'][-2])
         vol = generate_particle_plot(instance_id)
-        message = f"Class id: {class_id}, Instance id: {instance_id}"
+        message = f"Instance id: {instance_id}"
         fig = plot_image()
         return vol, message, fig
 
@@ -285,11 +244,9 @@ def main():
         prevent_initial_call=True
     )
     def number_render(val):
-        global umap
+        nonlocal umap
         vol = generate_particle_plot(val)
-        row = umap[umap['label'] == val]
-        class_id = row['semantic_class_2'] if 'semantic_class_2' in umap.columns else row['semantic_class']
-        message = f"Class id: {class_id.values[0]}, Instance id: {val}"
+        message = f"Instance id: {val}"
         fig = plot_image()
         selected_fig = generate_selected_scatter_plot(val)
         return vol, message, fig, selected_fig, message
@@ -300,7 +257,7 @@ def main():
         prevent_initial_call=True
     )
     def update_axis(value):
-        global sliding_axis
+        nonlocal sliding_axis
         sliding_axis = value
         fig = plot_image()
         return fig
@@ -311,13 +268,15 @@ def main():
         prevent_initial_call=True
     )
     def update_axis(value):
-        global view_type
+        nonlocal view_type
         view_type = value
         fig = plot_image()
         return fig
 
-    app.run_server(debug=False, dev_tools_props_check=False)
+    app.run(debug=False, dev_tools_props_check=False)
 
 
 if __name__ == '__main__':
-    main()
+    parser = parser_helper()
+    args = parser.parse_args()
+    main(args.config)
